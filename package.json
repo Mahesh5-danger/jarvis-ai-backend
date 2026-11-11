@@ -1,0 +1,10 @@
+
+{
+  "name": "jarvis-ai-backend",
+  "version": "1.0.0",
+  "description": "Personal JARVIS assistant backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
