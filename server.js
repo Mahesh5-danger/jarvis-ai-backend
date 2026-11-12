@@ -1,6 +1,11 @@
 
 const http = require("http");
 
+function send(res, status, data) {
+  res.writeHead(status);
+  res.end(JSON.stringify(data));
+}
+
 const server = http.createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,52 +20,77 @@ const server = http.createServer((req, res) => {
   const path = req.url.split("?")[0];
 
   if (path === "/health" && req.method === "GET") {
-    res.writeHead(200);
-    return res.end(JSON.stringify({
+    return send(res, 200, {
       status: "online",
       assistant: "JARVIS"
-    }));
+    });
   }
 
-  if (path === "/chat" && req.method === "POST") {
+  if (req.method === "POST" &&
+      (path === "/chat" || path === "/calculate")) {
     let body = "";
 
     req.on("data", chunk => {
       body += chunk;
+      if (body.length > 10000) req.destroy();
     });
 
     req.on("end", () => {
       try {
         const data = JSON.parse(body);
+
+        if (path === "/calculate") {
+          const a = Number(data.a);
+          const b = Number(data.b);
+          const op = data.operation;
+
+          if (!Number.isFinite(a) || !Number.isFinite(b)) {
+            return send(res, 400, { error: "Enter valid numbers" });
+          }
+
+          let result;
+
+          if (op === "add") result = a + b;
+          else if (op === "subtract") result = a - b;
+          else if (op === "multiply") result = a * b;
+          else if (op === "divide" && b !== 0) result = a / b;
+          else {
+            return send(res, 400, {
+              error: "Unsupported operation or division by zero"
+            });
+          }
+
+          return send(res, 200, {
+            assistant: "JARVIS",
+            tool: "calculator",
+            result
+          });
+        }
+
         const message = String(data.message || "").trim();
 
         if (!message) {
-          res.writeHead(400);
-          return res.end(JSON.stringify({
+          return send(res, 400, {
             error: "Please enter a message"
-          }));
+          });
         }
 
-        res.writeHead(200);
-        res.end(JSON.stringify({
+        return send(res, 200, {
           assistant: "JARVIS",
-          reply: "Hello! I received your message: " + message
-        }));
+          reply: "I received your message: " + message
+        });
+
       } catch (error) {
-        res.writeHead(400);
-        res.end(JSON.stringify({
-          error: "Invalid JSON"
-        }));
+        return send(res, 400, { error: "Invalid JSON" });
       }
     });
 
     return;
   }
 
-  res.writeHead(404);
-  res.end(JSON.stringify({
+  return send(res, 404, {
     message: "JARVIS route not found"
-  }));
+  });
 });
 
 const PORT = process.env.PORT || 3000;
