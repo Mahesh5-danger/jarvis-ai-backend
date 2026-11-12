@@ -1,2 +1,2 @@
-# jarvis-assistantjarvis-ai-backend
+# jarvis-ai-backend
 My personal AI voice assistant for Android.
