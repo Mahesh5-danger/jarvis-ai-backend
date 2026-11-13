@@ -74,6 +74,31 @@ const server = http.createServer((req, res) => {
             error: "Please enter a message"
           });
         }
+        
+if (message.toLowerCase().startsWith("plan ")) {
+  const task = message.slice(5).trim();
+
+  if (!task) {
+    return send(res, 400, {
+      error: "Please describe your task"
+    });
+  }
+
+  const plan =
+    "Task: " + task +
+    "\n\n1. Decide what you want to achieve." +
+    "\n2. List what you need." +
+    "\n3. Break the task into small steps." +
+    "\n4. Complete one step at a time." +
+    "\n5. Review your progress.";
+
+  return send(res, 200, {
+    assistant: "JARVIS",
+    tool: "task-planner",
+    reply: plan
+  });
+}
+
 
         return send(res, 200, {
           assistant: "JARVIS",
