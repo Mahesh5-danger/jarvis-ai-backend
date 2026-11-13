@@ -100,10 +100,68 @@ if (message.toLowerCase().startsWith("plan ")) {
 }
 
 
-        return send(res, 200, {
-          assistant: "JARVIS",
-          reply: "I received your message: " + message
-        });
+       
+(async () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return send(res, 500, {
+      error: "Gemini API key is missing"
+    });
+  }
+
+  try {
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [{ text: message }]
+          }]
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("Gemini error:", result.error);
+      return send(res, 502, {
+        error: "Gemini AI request failed"
+      });
+    }
+
+    const reply = result.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
+      .join("")
+      .trim();
+
+    if (!reply) {
+      return send(res, 502, {
+        error: "Gemini returned an empty response"
+      });
+    }
+
+    return send(res, 200, {
+      assistant: "JARVIS",
+      reply: reply
+    });
+
+  } catch (error) {
+    console.error("AI connection error:", error);
+
+    return send(res, 500, {
+      error: "Unable to connect to Gemini AI"
+    });
+  }
+})();
+ 
 
       } catch (error) {
         return send(res, 400, { error: "Invalid JSON" });
