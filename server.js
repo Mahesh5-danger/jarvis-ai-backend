@@ -227,7 +227,7 @@ const server = http.createServer((req, res) => {
 
         function getTag(item, tag) {
           const match = item.match(
-            new RegExp("<" + tag + "[^>]*>([\\\\s\\\\S]*?)</" + tag + ">")
+            new RegExp("<" + tag + "[^>]*>([\\s\\S]*?)</" + tag + ">")
           );
 
           return match
@@ -263,10 +263,6 @@ const server = http.createServer((req, res) => {
 
     return;
   }
-
-  
-  }
-
 
   return send(res, 404, {
     message: "JARVIS route not found"
