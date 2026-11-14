@@ -32,7 +32,7 @@ const server = http.createServer((req, res) => {
 
     req.on("data", chunk => {
       body += chunk;
-      if (body.length > 10000) req.destroy();
+      if (body.length > 20000) req.destroy();
     });
 
     req.on("end", () => {
@@ -45,7 +45,9 @@ const server = http.createServer((req, res) => {
           const op = data.operation;
 
           if (!Number.isFinite(a) || !Number.isFinite(b)) {
-            return send(res, 400, { error: "Enter valid numbers" });
+            return send(res, 400, {
+              error: "Enter valid numbers"
+            });
           }
 
           let result;
@@ -74,97 +76,114 @@ const server = http.createServer((req, res) => {
             error: "Please enter a message"
           });
         }
-        
-if (message.toLowerCase().startsWith("plan ")) {
-  const task = message.slice(5).trim();
 
-  if (!task) {
-    return send(res, 400, {
-      error: "Please describe your task"
-    });
-  }
+        if (message.toLowerCase().startsWith("plan ")) {
+          const task = message.slice(5).trim();
 
-  const plan =
-    "Task: " + task +
-    "\n\n1. Decide what you want to achieve." +
-    "\n2. List what you need." +
-    "\n3. Break the task into small steps." +
-    "\n4. Complete one step at a time." +
-    "\n5. Review your progress.";
+          if (!task) {
+            return send(res, 400, {
+              error: "Please describe your task"
+            });
+          }
 
-  return send(res, 200, {
-    assistant: "JARVIS",
-    tool: "task-planner",
-    reply: plan
-  });
-}
+          const plan =
+            "Task: " + task +
+            "\n\n1. Decide what you want to achieve." +
+            "\n2. List what you need." +
+            "\n3. Break the task into small steps." +
+            "\n4. Complete one step at a time." +
+            "\n5. Review your progress.";
 
+          return send(res, 200, {
+            assistant: "JARVIS",
+            tool: "task-planner",
+            reply: plan
+          });
+        }
 
-       
-(async () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+        // Accept recent conversation history safely.
+        const history = Array.isArray(data.history)
+          ? data.history
+              .filter(item =>
+                item &&
+                (item.role === "user" || item.role === "model") &&
+                typeof item.text === "string"
+              )
+              .slice(-12)
+              .map(item => ({
+                role: item.role,
+                parts: [{ text: item.text.slice(0, 2000) }]
+              }))
+          : [];
 
-  if (!apiKey) {
-    return send(res, 500, {
-      error: "Gemini API key is missing"
-    });
-  }
+        // Add the newest message after the earlier messages.
+        history.push({
+          role: "user",
+          parts: [{ text: message.slice(0, 2000) }]
+        });
 
-  try {
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          contents: [{
-            role: "user",
-            parts: [{ text: message }]
-          }]
-        })
-      }
-    );
+        (async () => {
+          const apiKey = process.env.GEMINI_API_KEY;
 
-    const result = await response.json();
+          if (!apiKey) {
+            return send(res, 500, {
+              error: "Gemini API key is missing"
+            });
+          }
 
-    if (!response.ok) {
-      console.error("Gemini error:", result.error);
-      return send(res, 502, {
-        error: "Gemini AI request failed"
-      });
-    }
+          try {
+            const response = await fetch(
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-goog-api-key": apiKey
+                },
+                body: JSON.stringify({
+                  contents: history
+                })
+              }
+            );
 
-    const reply = result.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "")
-      .join("")
-      .trim();
+            const result = await response.json();
 
-    if (!reply) {
-      return send(res, 502, {
-        error: "Gemini returned an empty response"
-      });
-    }
+            if (!response.ok) {
+              console.error("Gemini error:", result.error);
+              return send(res, 502, {
+                error: "Gemini AI request failed"
+              });
+            }
 
-    return send(res, 200, {
-      assistant: "JARVIS",
-      reply: reply
-    });
+            const reply = result.candidates?.[0]?.content?.parts
+              ?.map(part => part.text || "")
+              .join("")
+              .trim();
 
-  } catch (error) {
-    console.error("AI connection error:", error);
+            if (!reply) {
+              return send(res, 502, {
+                error: "Gemini returned an empty response"
+              });
+            }
 
-    return send(res, 500, {
-      error: "Unable to connect to Gemini AI"
-    });
-  }
-})();
- 
+            return send(res, 200, {
+              assistant: "JARVIS",
+              reply: reply
+            });
+
+          } catch (error) {
+            console.error("AI connection error:", error);
+
+            return send(res, 500, {
+              error: "Unable to connect to Gemini AI"
+            });
+          }
+        })();
 
       } catch (error) {
-        return send(res, 400, { error: "Invalid JSON" });
+        return send(res, 400, {
+          error: "Invalid JSON"
+        });
       }
     });
 
