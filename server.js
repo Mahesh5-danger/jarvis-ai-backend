@@ -195,6 +195,56 @@ const server = http.createServer((req, res) => {
 
     return;
   }
+  
+  if (path === "/news" && req.method === "GET") {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const topic = (params.get("topic") || "India").trim().slice(0, 80);
+
+    (async () => {
+      try {
+        const apiUrl = new URL("https://api.gdeltproject.org/api/v2/doc/doc");
+        apiUrl.search = new URLSearchParams({
+          query: topic,
+          mode: "ArtList",
+          format: "json",
+          maxrecords: "5",
+          timespan: "1d",
+          sort: "DateDesc"
+        }).toString();
+
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) {
+          return send(res, 502, { error: "News provider unavailable" });
+        }
+
+        const result = await response.json();
+        const articles = Array.isArray(result.articles)
+          ? result.articles
+          : [];
+
+        return send(res, 200, {
+          assistant: "JARVIS",
+          source: "GDELT Project",
+          topic,
+          articles: articles.map(article => ({
+            title: String(article.title || "").slice(0, 300),
+            url: String(article.url || ""),
+            source: String(article.domain || ""),
+            seenAt: String(article.seendate || "")
+          }))
+        });
+      } catch (error) {
+        console.error("News connection error:", error);
+        return send(res, 500, {
+          error: "Unable to retrieve news right now"
+        });
+      }
+    })();
+
+    return;
+  }
+
 
   return send(res, 404, {
     message: "JARVIS route not found"
