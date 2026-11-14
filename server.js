@@ -141,8 +141,14 @@ const server = http.createServer((req, res) => {
                   "x-goog-api-key": apiKey
                 },
                 body: JSON.stringify({
-                  contents: history
-                })
+  system_instruction: {
+    parts: [{
+      text: "You are JARVIS, a helpful AI coding assistant. You can write, explain, debug, and improve code in HTML, CSS, JavaScript, Python, and other programming languages. Give complete beginner-friendly examples. Explain where code should go. Never claim that code has been tested or executed unless it actually has. Never reveal API keys, passwords, or secrets. Do not execute code or make changes to files."
+    }]
+  },
+  contents: history
+})
+                
               }
             );
 
