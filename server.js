@@ -202,38 +202,57 @@ const server = http.createServer((req, res) => {
 
     (async () => {
       try {
-        const apiUrl = new URL("https://api.gdeltproject.org/api/v2/doc/doc");
-        apiUrl.search = new URLSearchParams({
-          query: topic,
-          mode: "ArtList",
-          format: "json",
-          maxrecords: "5",
-          timespan: "1d",
-          sort: "DateDesc"
+        const newsUrl = new URL("https://news.google.com/rss/search");
+        newsUrl.search = new URLSearchParams({
+          q: topic,
+          hl: "en-IN",
+          gl: "IN",
+          ceid: "IN:en"
         }).toString();
 
-        const response = await fetch(apiUrl);
+        const response = await fetch(newsUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 JARVIS" },
+          signal: AbortSignal.timeout(15000)
+        });
 
         if (!response.ok) {
-          return send(res, 502, { error: "News provider unavailable" });
+          return send(res, 502, {
+            error: "Google News unavailable",
+            status: response.status
+          });
         }
 
-        const result = await response.json();
-        const articles = Array.isArray(result.articles)
-          ? result.articles
-          : [];
+        const xml = await response.text();
+        const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+
+        function getTag(item, tag) {
+          const match = item.match(
+            new RegExp("<" + tag + "[^>]*>([\\\\s\\\\S]*?)</" + tag + ">")
+          );
+
+          return match
+            ? match[1]
+                .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+                .replace(/<[^>]*>/g, "")
+                .replace(/&amp;/g, "&")
+                .replace(/&quot;/g, '"')
+                .replace(/&lt;/g, "<")
+                .replace(/&gt;/g, ">")
+                .trim()
+            : "";
+        }
 
         return send(res, 200, {
           assistant: "JARVIS",
-          source: "GDELT Project",
+          source: "Google News RSS",
           topic,
-          articles: articles.map(article => ({
-            title: String(article.title || "").slice(0, 300),
-            url: String(article.url || ""),
-            source: String(article.domain || ""),
-            seenAt: String(article.seendate || "")
+          articles: items.slice(0, 5).map(item => ({
+            title: getTag(item, "title"),
+            url: getTag(item, "link"),
+            seenAt: getTag(item, "pubDate")
           }))
         });
+
       } catch (error) {
         console.error("News connection error:", error);
         return send(res, 500, {
@@ -243,6 +262,9 @@ const server = http.createServer((req, res) => {
     })();
 
     return;
+  }
+
+  
   }
 
 
