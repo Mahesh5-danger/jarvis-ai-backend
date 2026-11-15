@@ -253,10 +253,12 @@ const server = http.createServer((req, res) => {
           }))
         });
 
-      } catch (error) {
+            } catch (error) {
         console.error("News connection error:", error);
+
         return send(res, 500, {
-          error: "Unable to retrieve news right now"
+          error: "Unable to retrieve news right now",
+          details: error.cause?.code || error.code || error.message
         });
       }
     })();
